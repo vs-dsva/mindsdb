@@ -86,10 +86,11 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloa
 RUN --mount=target=/var/lib/apt,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
     apt update && apt-get upgrade -y \
-    && apt-get install -y libmagic1 libpq5 freetds-bin curl
+    && apt-get install -y libmagic1 libpq5 freetds-bin curl \
+    && groupadd -g 1000 mindsdb && useradd -u 1000 -g 1000 -d /home/mindsdb -m mindsdb
 
 COPY --link --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
-COPY docker/mindsdb_config.release.json /root/mindsdb_config.json
+COPY docker/mindsdb_config.release.json /home/mindsdb/mindsdb_config.json
 COPY . .
 
 ENV PYTHONUNBUFFERED 1
@@ -98,5 +99,5 @@ ENV MINDSDB_DOCKER_ENV 1
 EXPOSE 47334/tcp
 EXPOSE 47335/tcp
 EXPOSE 47336/tcp
-
-ENTRYPOINT [ "sh", "-c", "python -m mindsdb --config=/root/mindsdb_config.json --api=http,mysql,mongodb" ]
+USER 1000
+ENTRYPOINT [ "sh", "-c", "python -m mindsdb --config=/home/mindsdb/mindsdb_config.json --api=http,mysql,mongodb" ]
