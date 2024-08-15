@@ -15,8 +15,6 @@ COPY setup.py default_handlers.txt README.md ./
 COPY mindsdb/__about__.py mindsdb/
 
 
-
-
 # This stage copies the structure left from the previous stage and runs `pip install .`
 # This long-running step should be cached in most cases (unless a requirements file or setup.py etc is changed)
 FROM python:3.10 as build
@@ -42,8 +40,6 @@ RUN --mount=type=cache,target=/root/.cache/pip if [ -n "$EXTRAS" ]; then pip ins
 COPY . .
 # Install the "mindsdb" package now that we have the code for it
 RUN --mount=type=cache,target=/root/.cache/pip pip install "."
-
-
 
 
 # Same as build image, but with dev dependencies installed.
@@ -87,7 +83,8 @@ RUN --mount=target=/var/lib/apt,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
     apt update && apt-get upgrade -y \
     && apt-get install -y libmagic1 libpq5 freetds-bin curl \
-    && groupadd -g 1000 mindsdb && useradd -u 1000 -g 1000 -d /home/mindsdb -m mindsdb
+    && groupadd -g 1000 mindsdb && useradd -u 1000 -g 1000 -d /home/mindsdb -m mindsdb \
+    && chmod a+rwx /mindsdb
 
 COPY --link --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 COPY docker/mindsdb_config.release.json /home/mindsdb/mindsdb_config.json
@@ -95,9 +92,13 @@ COPY . .
 
 ENV PYTHONUNBUFFERED 1
 ENV MINDSDB_DOCKER_ENV 1
+ENV PATH ${PATH}:/home/mindsdb/.local/bin
 
 EXPOSE 47334/tcp
 EXPOSE 47335/tcp
 EXPOSE 47336/tcp
 USER 1000
+RUN --mount=type=cache,target=/home/mindsdb/.cache/pip pip install '.[pyod]'
+RUN --mount=type=cache,target=/home/mindsdb/.cache/pip pip install 'mindsdb[lightwood]'
+
 ENTRYPOINT [ "sh", "-c", "python -m mindsdb --config=/home/mindsdb/mindsdb_config.json --api=http,mysql,mongodb" ]
